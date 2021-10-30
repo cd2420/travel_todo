@@ -1,6 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from './colors';
 
 export default function App() {
@@ -8,23 +10,59 @@ export default function App() {
   const [todo, setTodo] = useState(true);
   const [text, setText] = useState("")
   const [toDos, setToDos] = useState({})
+  const STORAGE_KEY = "@toDos"
+
+  useEffect(() => {
+    loadToDos()
+  }, [])
 
   const travel = () => setTodo(false)
   const to_do = () => setTodo(true) 
   const onChangeText = (payLoad) => {
     setText(payLoad)
   }
-  const addToDo = () => {
+  const addToDo = async () => {
     if (text === "") {
       return
     }
     // save toDo
-    const newToDos = Object.assign({}, 
-                                  toDos, 
-                                  {[Date.now()]: {text, work: todo}}
-                                  )
+    const newToDos = {...toDos
+                      , [Date.now()] : {text, todo}}
     setToDos(newToDos)
+    await saveToDos(newToDos)
     setText("")
+  }
+  const saveToDos = async (toSave) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
+    } catch (e) {
+
+    }
+    
+  }
+  const loadToDos = async () => {
+    const s = await AsyncStorage.getItem(STORAGE_KEY)
+    setToDos(JSON.parse(s))
+  }
+
+  const deleteToDo = (key) => {
+    Alert.alert(
+      "Delete To DO?",
+      "Are you sure?",
+      [
+        {
+          text: "Cancel"
+        },
+        { text: "OK", onPress: async () => {
+          const newToDos = {...toDos}
+          delete newToDos[key]
+          setToDos(newToDos) 
+          await saveToDos(newToDos)
+        }}
+      ]
+
+    )
+    
   }
   
   return (
@@ -47,6 +85,25 @@ export default function App() {
           placeholder={todo ? "Add a To_Do" : "Where do you want to go?"}
           
         />
+        <ScrollView>
+          {
+            Object.keys(toDos).map(key => (
+              
+              toDos[key].todo === todo ?
+              
+              <View key={key} style={styles.toDo}>
+                <Text style={styles.toDoText}>
+                  {toDos[key].text}
+                </Text>
+                <TouchableOpacity onPress={ () => deleteToDo(key)}>
+                  <Ionicons name="trash" size={24} color="white" />
+                </TouchableOpacity>
+              </View>
+              :
+              null
+            ))
+          }
+        </ScrollView>
       </View>
     </View>
   );
@@ -72,7 +129,22 @@ const styles = StyleSheet.create({
     , paddingVertical: 15
     , paddingHorizontal: 20
     , borderRadius: 30
-    , marginTop: 20
     , fontSize: 20
+    , marginVertical: 20
+  },
+  toDo: {
+    backgroundColor: theme.toDoBg
+    , marginBottom: 10
+    , paddingVertical: 20
+    , paddingHorizontal: 40
+    , borderRadius: 15
+    , flexDirection: "row"
+    , alignItems: "center"
+    , justifyContent: "space-between"
+  },
+  toDoText: {
+    color: "white"
+    , fontSize: 16
+    , fontWeight: "500"
   }
 });
